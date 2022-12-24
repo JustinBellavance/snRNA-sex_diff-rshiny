@@ -4,64 +4,27 @@ library(shiny)
 library(tidyverse)
 library(data.table)
 
-local <- FALSE
+local <- TRUE
 
+#setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 
-if (local) {
-  source("volcano.R")
-  tsv <- list.files("data/", pattern = ".tsv", full.names = TRUE)
-  csv <- list.files("data/", pattern = ".csv", full.names = TRUE)
-  txt <- list.files("data/", pattern = ".txt", full.names = TRUE)
-} else {
-  source("/apps/volcano/volcano.R")
-  tsv <- list.files("/work", pattern = ".tsv", full.names = TRUE)
-  csv <- list.files("/work", pattern = ".csv", full.names = TRUE)
-  txt <- list.files("/work", pattern = ".txt", full.names = TRUE)
-}
+source("volcano.R")
 
+csv <- list.files("data/", pattern = ".csv", full.names = TRUE)
 
-if(length(tsv) > 0) {
-  data <- read.table(tsv, header = TRUE, sep = "\t")
-}
-
-if(length(csv) > 0) {
-  data <- read.table(csv, header = TRUE, sep = ",")
-}
-
-if(length(txt) > 0) {
-  data <- fread(txt)
-}
-
+data <- read.table(csv, header = TRUE, sep = ",")
 data <- as.data.frame(data)
 
-# functions
-pvalue_candidate_f <- function(x) {
-  if (class(data[[x]]) == "numeric") {
-    if (max(data[[x]], na.rm = TRUE) <= 1) {
-      if (min(data[[x]], na.rm = TRUE) >= 0) {
-        return(TRUE)
-      }
-    }
-  }
-  return(FALSE)
-}
+logfc_cols <- c("log2FoldChange")
+pval_cols <- c("padj", "pvalue")
 
-logfc_candidate_f <- function(x) {
-  if (class(data[[x]]) == "numeric") {
-        return(TRUE)}
-  return(FALSE)
-}
 
-gene_candidate_f <- function(x) {
-  if (class(data[[x]]) == "character") {
-    return(TRUE)}
-  return(FALSE)
-}
+#replace all rows where log2FoldChange == NA to 0.
+data$log2FoldChange[is.na(data$log2FoldChange)] = 0
 
-# check data columns to ID most likely candidates for pval, logfc, and gene ID
-pval_cols <- names(data)[sapply(names(data), pvalue_candidate_f)]
-logfc_cols <- names(data)[sapply(names(data), logfc_candidate_f)]
-gene_cols <- names(data)[sapply(names(data), gene_candidate_f)]
+#replace all rows where pvalue, padj == NA to 1.
+data$pvalue[is.na(data$pvalue)] = 1
+data$padj[is.na(data$padj)] = 1
 
 # ui -----------------------------
 ui <- fluidPage(
@@ -93,11 +56,11 @@ ui <- fluidPage(
                               h4("Set significance and effect size thresholds:"),
                                         
                               # set pvalue threshold 
-                              sliderInput("pvalue_threshold",
-                                          "Set significance threshold",
-                                          min = 0,
-                                          max = 1,
-                                          value = .05),
+                              numericInput("pvalue_threshold",
+                                           "Set significance threshold", 
+                                           value = 0.05, 
+                                           min = 0, 
+                                           step = 0.001),
                               
                               # set logfc threshold
                               uiOutput("logfc_slider"),
@@ -105,14 +68,11 @@ ui <- fluidPage(
                               # HIGHLIGHT GENES -----
                               h4("Label features of interest:"),
                               
-                              # select column for gene ID input
-                              selectInput("gene_col",
-                                          "Select input column for feature label",
-                                          gene_cols,
-                                          multiple = FALSE),
-                              
-                              # gene selector menu
-                              uiOutput("gene_selector"),
+                              #gene selector menu
+                              selectizeInput("selected_genes",
+                                            "Select feature(s) to label",
+                                            NULL,
+                                            multiple = TRUE),
                               
                               # CUSTOMIZE PLOT -----
                               h4("Customize plot:"),
@@ -199,7 +159,7 @@ ui <- fluidPage(
 
 # server -------------------------
 server <- function(input, output, session) {
-  
+
   # IDENTIFY DIFFERENTIALLY EXPRESSED GENES -----
   
   # render UI for logfc slider
@@ -259,15 +219,6 @@ server <- function(input, output, session) {
     })
   
   # HIGHLIGHTED GENE TABLE -----
-
-    # select genes to highlight
-    output$gene_selector <- renderUI({
-      selectInput("selected_genes",
-                  "Select feature(s) to label",
-                  sort(data[[input$gene_col]]),
-                  multiple = TRUE,
-                  selectize= TRUE)
-      })
     
     # initialize gene_list$clicked_gene_list as NULL
     # This will reactively update
@@ -278,9 +229,9 @@ server <- function(input, output, session) {
       nearPoints(data_w_log_pval(),
                  input$volcano_click,
                  xvar = input$logfc_col,
-                 yvar = .data$log_pval,
+                 yvar = data$log_pval,
                  maxpoints = 1) %>%
-        select(input$gene_col)
+        select("gene")
       })
     
     # when a point is clicked on the volcano plot
@@ -312,21 +263,23 @@ server <- function(input, output, session) {
     })
     
     observe({
-      updateSelectInput(session, 
+      updateSelectizeInput(session, 
                         "selected_genes",
                         label = "Select feature(s) to label",
-                        choices = sort(data[[input$gene_col]]),
-                        selected = gene_list$clicked_gene_list)
+                        choices = sort(data[["gene"]]),
+                        selected = gene_list$clicked_gene_list,
+                        server = TRUE
+                        )
     })
     
 
   # reactive function that subsets data by highlighted_gene vector
   highlight_gene_data <- reactive({
     if (length(input$selected_genes) > 0) {
-      highlight_gene_data <- data[data[[input$gene_col]] %in% input$selected_genes, c(input$gene_col, input$logfc_col, input$pvalue_col)]
+      highlight_gene_data <- data[data[["gene"]] %in% input$selected_genes, c("gene", input$logfc_col, input$pvalue_col)]
     } else {
       highlight_gene_data <- data.frame(NA, NA, NA)
-      names(highlight_gene_data) <- c(input$gene_col, input$logfc_col, input$pvalue_col)
+      names(highlight_gene_data) <- c("gene", input$logfc_col, input$pvalue_col)
     }
   })
 
@@ -363,7 +316,7 @@ server <- function(input, output, session) {
     plotVolcano(data = data, 
                 logfc_col = input$logfc_col, 
                 pvalue_col = input$pvalue_col,
-                gene_col = input$gene_col,
+                gene_col = "gene",
                 pvalue_thresh = input$pvalue_threshold,
                 logfc_thresh = input$logfc_threshold,
                 de_vec = is_de(),
@@ -394,9 +347,9 @@ server <- function(input, output, session) {
   
   # Collect nearpoint info and reduce to only gene_col, logfc_col and pvalue_col
   point_info <- reactive({
-     nearpoint_out <- nearPoints(data_w_log_pval(), input$volcano_hover, xvar = input$logfc_col, yvar = .data$log_pval, maxpoints = 1)
+     nearpoint_out <- nearPoints(data_w_log_pval(), input$volcano_hover, xvar = input$logfc_col, yvar = data$log_pval, maxpoints = 1)
      nearpoint_out %>%
-       select(input$gene_col, input$logfc_col, input$pvalue_col)
+       select("gene", input$logfc_col, input$pvalue_col)
    })
   
   # render printed text
@@ -418,3 +371,8 @@ server <- function(input, output, session) {
 
 # build app ----------------------
 shinyApp(ui, server)
+
+#------------------------------------
+#rsconnect::deployApp('../shinyapp/', 
+# appName = "snRNA_Visualization", 
+# account = "justinfuzz")

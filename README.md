@@ -1,42 +1,16 @@
-## Interactive Volcano Plot
+## snRNA-seq Differential Expression Analysis Visualization
 
-An interactive shiny app for creating and editing volcano plots. A volcano plot is a type of scatter plot represents differential expression of features (genes for example): on the x-axis we typically find the fold change and on the y-axis the p-value.
+An interactive shiny app to compare male vs female expression of mice spinal cords, from snRNA-seq data. You can look at the volcano plot or the raw data matrix.
 
-### Set up
+A volcano plot is a type of scatter plot represents differential expression of features (genes for example): on the x-axis we typically find the fold change and on the y-axis the p-value.
 
-The easiest way to install this application is to clone it from this GitHub. Open the command line (terminal on Mac) and type the following commands:
+### Forked from https://github.com/FredHutch/interactiveVolcano
 
-Go to the directory that you want to download the app to.
-```
-cd <PATH/TO/DIR>
-```
+The workhorse of this code and description was forked from https://github.com/FredHutch/interactiveVolcano. 
 
-Clone this repository
-```
-git clone https://github.com/FredHutch/interactiveVolcano.git
-```
+A couple optimizations (mainly using server-side selectize instead of client-side select) and specificity was added to be compabitible with the snRNA-seq mice spinal cord data.
 
-This app is built to work in a specific private Docker environment. To run locally, open `app.R` and switch the variable `local` to `local <- TRUE` 
-
-### Adding your data 
-
-This shiny app takes a single file input. It is a dataframe with at least three columns: gene ID, significance value, and effect size. The dataframe should be saved as either a `.csv`, `.tsv`, or `.txt`.
-
-Replace the example dataset in `interactiveVolcano/data` with your dataset.
-
-### Running the app
-
-Run the app from RStudio:
-
-1. Open `app.R`.
-2. Click `Run App` in the top right hand corner.
-
->Make sure that RStudio's working directory points to the application
-
-Run from the command line:
-
-1. Navigate to the `interactiveVolcano` directory
-2. `R -e "shiny::runApp('./')"`
+### ShinyApp can be found at https://justinfuzz.shinyapps.io/snRNA_Visualization/?_ga=2.190652331.181211097.1671848990-1009044673.1671848990
 
 ### Application features
 
@@ -51,3 +25,5 @@ Easily download your volcano plot as a `.pdf` by clicking the download button.
 On the second tab you'll find a rendered data table of the uploaded dataset that can be filtered to only show differentially expressed genes.
 
 ![](/assets/dataScreenShot.png)
+
+### Big thank you to @lwolfe on Github and the Fred Hutch cancer center for making their code open source. 
