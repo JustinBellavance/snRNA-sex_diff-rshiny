@@ -1,0 +1,14 @@
+name: snRNA_Visualization
+title:
+username:
+account: justinfuzz
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 7938568
+bundleId: 8117370
+url: https://justinbellavance.shinyapps.io/snRNA_Visualization/
+when: 1704647662.68424
+lastSyncTime: 1704647662.68424
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: assets/dataScreenShot.png|assets/volcanoPlotScreenShot.png|README.md
